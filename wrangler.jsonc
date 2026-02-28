@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "my-app",
+  "name": "blog-backend",
   "main": "src/index.ts",
   "compatibility_date": "2026-02-28"
   // "compatibility_flags": [
