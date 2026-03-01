@@ -1,12 +1,15 @@
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { comments } from './db/schema';
+import { cors } from 'hono/cors';
 
 export type Env = {
   DB: D1Database;
 }
 
 const app = new Hono<{ Bindings: Env }>()
+
+app.use('/*', cors())
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
