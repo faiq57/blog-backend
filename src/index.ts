@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
-import { comments } from './db/schema';
+import { comments, posts } from './db/schema';
 import { cors } from 'hono/cors';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { eq } from 'drizzle-orm';
 
 export type Env = {
   DB: D1Database;
@@ -21,9 +22,22 @@ app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
 
+app.get('/posts', async (c) => {
+  const db = drizzle(c.env.DB);
+  const result = await db.select().from(posts).all()
+  return c.json(result);
+})
+
 app.get('/comments', async (c) => {
   const db = drizzle(c.env.DB);
   const result = await db.select().from(comments).all()
+  return c.json(result);
+})
+
+app.get('/comments/:postId', async (c) => {
+  const postId = parseInt(c.req.param('postId'));
+  const db = drizzle(c.env.DB)
+  const result = await db.select().from(comments).where(eq(comments.postId, postId))
   return c.json(result);
 })
 
@@ -33,10 +47,13 @@ app.post('/comments', async (c) => {
     return c.text('Your comment needs an author')
   } else if (!Object.hasOwn(body, 'content')) {
     return c.text('You comment need stuff')
+  } else if (!Object.hasOwn(body, 'postId')) {
+    return c.text('Um, you lack a post id somehow')
   }
 
   const author = body.author.toString()
   const content = body.content.toString()
+  const postId = body.postId
 
   if (author.length == 0 || author.length > 256) {
     return c.text('You either need a name or your name is too long')
@@ -45,7 +62,7 @@ app.post('/comments', async (c) => {
   }
 
   const db = drizzle(c.env.DB);
-  const result = await db.insert(comments).values({author: author, content: content})
+  const result = await db.insert(comments).values({author: author, postId: postId, content: content})
 
   return c.text('Your comment is successfully published')
 })
