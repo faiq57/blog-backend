@@ -2,9 +2,15 @@ import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
 import { comments } from './db/schema';
 import { cors } from 'hono/cors';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export type Env = {
   DB: D1Database;
+  B2_KEY_ID: string;
+  B2_APPLICATION_KEY: string;
+  B2_ENDPOINT: string;
+  B2_REGION: string;
+  BUCKET_NAME: string;
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -42,6 +48,37 @@ app.post('/comments', async (c) => {
   const result = await db.insert(comments).values({author: author, content: content})
 
   return c.text('Your comment is successfully published')
+})
+
+// DISCLAIMER: This whole function is something I copied from Google's "AI MODE" cause eh
+app.get('/images/:key', async (c) => {
+  const s3 = new S3Client({
+    region: c.env.B2_REGION,
+    endpoint: `https://${c.env.B2_ENDPOINT}`,
+    credentials: {
+      accessKeyId: c.env.B2_KEY_ID,
+      secretAccessKey: c.env.B2_APPLICATION_KEY,
+    },
+  })
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: c.env.BUCKET_NAME,
+      Key: c.req.param('key'),
+    })
+
+    const { Body, ContentType } = await s3.send(command)
+    
+    // In Cloudflare Workers, S3 Body can be cast to a ReadableStream
+    return new Response(Body as ReadableStream, {
+      headers: { 
+        'Content-Type': ContentType || 'image/jpeg', // Fallback if B2 doesn't return type
+        'Cache-Control': 'public, max-age=31536000', // Optional: Tell browser to cache image
+      }
+    })
+  } catch (err) {
+    return c.text('Image not found', 404)
+  }
 })
 
 export default app
