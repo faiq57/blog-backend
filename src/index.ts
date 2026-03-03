@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { comments, posts } from './db/schema';
 import { cors } from 'hono/cors';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 export type Env = {
   DB: D1Database;
@@ -24,7 +24,7 @@ app.get('/', (c) => {
 
 app.get('/posts', async (c) => {
   const db = drizzle(c.env.DB);
-  const result = await db.select().from(posts).all()
+  const result = await db.select().from(posts).orderBy(desc(posts.timestamp))
   return c.json(result);
 })
 
@@ -57,7 +57,7 @@ app.post('/comments', async (c) => {
 
   if (author.length == 0 || author.length > 256) {
     return c.text('You either need a name or your name is too long')
-  } else if (content.length == 0 || content.length > 1024) {
+  } else if (content.length == 0) {
     return c.text('You either need to comment anything or your comment is too long')
   }
 
